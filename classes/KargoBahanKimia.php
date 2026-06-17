@@ -22,6 +22,9 @@ class KargoBahanKimia extends Kargo
     /** @var array Daftar tingkat bahaya yang valid (Class 1 - 9) */
     private const TINGKAT_BAHAYA_VALID = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+    /** @var float Biaya tambahan per tingkat bahaya (Class × Rp100.000) */
+    private const BIAYA_PER_TINGKAT_BAHAYA = 100000;
+
     /**
      * Constructor untuk KargoBahanKimia.
      *
@@ -50,35 +53,39 @@ class KargoBahanKimia extends Kargo
 
     /**
      * Menghitung total tarif pengiriman bahan kimia.
-     * Rumus: Berat (kg) × Tarif Dasar per Kg × Multiplier Bahaya
-     * Multiplier Bahaya ditentukan berdasarkan tingkat bahaya:
-     * - Class 1-3 (rendah): 1.2x
-     * - Class 4-6 (sedang): 1.5x
-     * - Class 7-9 (tinggi): 2.0x
+     * Rumus: (Berat × Tarif Dasar per Kg) + (Tingkat Bahaya × Rp100.000)
      *
      * @return float
      */
     protected function hitungTarifPengiriman(): float
     {
-        $multiplierBahaya = $this->getMultiplierBahaya();
-        return (float) $this->beratBarang * (float) $this->tarifDasarPerKg * $multiplierBahaya;
+        $tarifBerat = (float) $this->beratBarang * (float) $this->tarifDasarPerKg;
+        $biayaBahaya = (float) $this->tingkatBahaya * self::BIAYA_PER_TINGKAT_BAHAYA;
+
+        return $tarifBerat + $biayaBahaya;
     }
 
     /**
-     * Mendapatkan multiplier tarif berdasarkan tingkat bahaya.
+     * Rincian komponen tarif untuk ditampilkan di dashboard.
      *
-     * @return float
+     * @return array{tarif_berat: float, biaya_bahaya: float, formula: string}
      */
-    private function getMultiplierBahaya(): float
+    public function getRincianPerhitungan(): array
     {
-        if ($this->tingkatBahaya >= 1 && $this->tingkatBahaya <= 3) {
-            return 1.2;
-        } elseif ($this->tingkatBahaya >= 4 && $this->tingkatBahaya <= 6) {
-            return 1.5;
-        } elseif ($this->tingkatBahaya >= 7 && $this->tingkatBahaya <= 9) {
-            return 2.0;
-        }
-        return 1.0; // Default jika ada kesalahan
+        $tarifBerat = (float) $this->beratBarang * (float) $this->tarifDasarPerKg;
+        $biayaBahaya = (float) $this->tingkatBahaya * self::BIAYA_PER_TINGKAT_BAHAYA;
+
+        return [
+            'tarif_berat' => $tarifBerat,
+            'biaya_bahaya' => $biayaBahaya,
+            'formula' => sprintf(
+                '(%s kg × Rp %s) + (Class %d × Rp %s)',
+                $this->beratBarang,
+                number_format($this->tarifDasarPerKg, 0, ',', '.'),
+                $this->tingkatBahaya,
+                number_format(self::BIAYA_PER_TINGKAT_BAHAYA, 0, ',', '.')
+            ),
+        ];
     }
 
     /**
@@ -117,7 +124,7 @@ class KargoBahanKimia extends Kargo
      *
      * @return bool
      */
-    public function simpanKargoBahanKimia(): bool
+    public function simpanKargoBahanKimia(?PDO $pdo = null): bool
     {
         // Generate ID resi dengan prefix KIM jika belum ada
         if (empty($this->id_resi)) {
@@ -125,8 +132,9 @@ class KargoBahanKimia extends Kargo
         }
 
         try {
-            $database = new Database();
-            $pdo = $database->getConnection();
+            if ($pdo === null) {
+                require __DIR__ . '/../config/connection.php';
+            }
 
             $sql = "INSERT INTO kargo_bahan_kimia
                     (id_resi, tingkat_bahaya, jenis_sertifikasi_sandi)

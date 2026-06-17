@@ -1,61 +1,19 @@
 <?php
-require_once __DIR__ . '/../classes/Kargo.php';
-require_once __DIR__ . '/../classes/KargoReguler.php';
-require_once __DIR__ . '/../classes/KargoBahanKimia.php';
-require_once __DIR__ . '/../classes/KargoPecahBelah.php';
+require_once __DIR__ . '/../classes/KargoFactory.php';
 
 $result = null;
+$tarifDasarPerKg = KargoFactory::getTarifDasarPerKg();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $jenis_kargo = $_POST['jenis_kargo'] ?? '';
     $berat = floatval($_POST['berat'] ?? 0);
-    $tarif_dasar = floatval($_POST['tarif_dasar'] ?? 0);
 
-    if ($jenis_kargo && $berat && $tarif_dasar) {
-        switch ($jenis_kargo) {
-            case 'reguler':
-                $tarif = $berat * $tarif_dasar;
-                $result = [
-                    'jenis' => 'Kargo Reguler',
-                    'berat' => $berat,
-                    'tarif_dasar' => $tarif_dasar,
-                    'formula' => "$berat kg × Rp " . number_format($tarif_dasar, 0, ',', '.'),
-                    'tarif_total' => $tarif
-                ];
-                break;
-            case 'kimia':
-                $tingkat_bahaya = intval($_POST['tingkat_bahaya'] ?? 1);
-                if ($tingkat_bahaya <= 3) {
-                    $mult = 1.2;
-                    $kategori = 'Rendah';
-                } elseif ($tingkat_bahaya <= 6) {
-                    $mult = 1.5;
-                    $kategori = 'Sedang';
-                } else {
-                    $mult = 2.0;
-                    $kategori = 'Tinggi';
-                }
-                $tarif = $berat * $tarif_dasar * $mult;
-                $result = [
-                    'jenis' => 'Kargo Bahan Kimia',
-                    'berat' => $berat,
-                    'tarif_dasar' => $tarif_dasar,
-                    'formula' => "$berat kg × Rp " . number_format($tarif_dasar, 0, ',', '.') . " × $mult (Class $tingkat_bahaya - $kategori)",
-                    'tarif_total' => $tarif
-                ];
-                break;
-            case 'pecah_belah':
-                $asuransi = floatval($_POST['asuransi'] ?? 50000);
-                $tarif_jenis = $berat * $tarif_dasar;
-                $tarif = $tarif_jenis + $asuransi;
-                $result = [
-                    'jenis' => 'Kargo Pecah Belah',
-                    'berat' => $berat,
-                    'tarif_dasar' => $tarif_dasar,
-                    'formula' => "($berat kg × Rp " . number_format($tarif_dasar, 0, ',', '.') . ") + Rp " . number_format($asuransi, 0, ',', '.'),
-                    'tarif_total' => $tarif
-                ];
-                break;
+    if ($jenis_kargo && $berat > 0) {
+        $kargo = KargoFactory::createForKalkulator($_POST);
+
+        if ($kargo !== null) {
+            // Polimorfisme: tarif dihitung oleh subclass masing-masing
+            $result = KargoFactory::buildHasilPerhitungan($kargo);
         }
     }
 }
@@ -78,17 +36,19 @@ function formatRupiah($amount) {
 
     <main class="main-content">
         <div class="container">
-            <!-- Page Header -->
             <div class="page-header">
                 <h1 class="page-title">Perhitungan Tarif</h1>
-                <p class="page-subtitle">Kalkulator tarif pengiriman berdasarkan jenis kargo</p>
+                <p class="page-subtitle">Kalkulator tarif pengiriman berdasarkan jenis kargo (OOP Polimorfisme)</p>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                <!-- Calculator Form -->
                 <div class="card">
                     <h3 class="card-title">Hitung Tarif Pengiriman</h3>
-                    
+
+                    <div style="background: rgba(59,130,246,0.08); border: 1px solid #3b82f6; color: #1d4ed8; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;">
+                        Tarif dasar/kg: <strong><?php echo formatRupiah($tarifDasarPerKg); ?></strong> (ditetapkan sistem)
+                    </div>
+
                     <form method="POST">
                         <div class="form-group">
                             <label class="form-label">Pilih Jenis Kargo *</label>
@@ -100,47 +60,49 @@ function formatRupiah($amount) {
                             </select>
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">Berat Barang (kg) *</label>
-                                <input type="number" name="berat" class="form-input" step="0.1" value="<?php echo $_POST['berat'] ?? ''; ?>" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Tarif Dasar/kg (Rp) *</label>
-                                <input type="number" name="tarif_dasar" class="form-input" value="<?php echo $_POST['tarif_dasar'] ?? ''; ?>" required>
-                            </div>
+                        <div class="form-group">
+                            <label class="form-label">Berat Barang (kg) *</label>
+                            <input type="number" name="berat" class="form-input" step="0.1" value="<?php echo htmlspecialchars($_POST['berat'] ?? ''); ?>" required>
                         </div>
 
-                        <!-- Tambahan untuk Kimia -->
                         <div id="form-kimia" style="display: <?php echo ($_POST['jenis_kargo'] ?? '') === 'kimia' ? 'block' : 'none'; ?>;">
-                            <div class="form-group">
-                                <label class="form-label">Tingkat Bahaya (1-9)</label>
-                                <input type="number" name="tingkat_bahaya" class="form-input" min="1" max="9" value="<?php echo $_POST['tingkat_bahaya'] ?? '5'; ?>">
-                                <small class="text-light" style="display: block; margin-top: 8px;">• Class 1-3 (Rendah): Multiplier 1.2x<br>• Class 4-6 (Sedang): Multiplier 1.5x<br>• Class 7-9 (Tinggi): Multiplier 2.0x</small>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Tingkat Bahaya (Class 1-9)</label>
+                                    <input type="number" name="tingkat_bahaya" class="form-input" min="1" max="9" value="<?php echo htmlspecialchars($_POST['tingkat_bahaya'] ?? '5'); ?>">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Sertifikasi Keamanan</label>
+                                    <input type="text" name="jenis_sertifikasi" class="form-input" value="<?php echo htmlspecialchars($_POST['jenis_sertifikasi'] ?? 'MSDS-SND'); ?>">
+                                </div>
                             </div>
+                            <small class="text-light" style="display: block; margin-top: 8px;">
+                                Rumus: (Berat × Tarif Dasar) + (Class × Rp 100.000)
+                            </small>
                         </div>
 
-                        <!-- Tambahan untuk Pecah Belah -->
                         <div id="form-pecah-belah" style="display: <?php echo ($_POST['jenis_kargo'] ?? '') === 'pecah_belah' ? 'block' : 'none'; ?>;">
                             <div class="form-group">
-                                <label class="form-label">Biaya Asuransi Wajib (Rp)</label>
-                                <input type="number" name="asuransi" class="form-input" value="<?php echo $_POST['asuransi'] ?? '50000'; ?>">
+                                <label class="form-label">Ketebalan Bubble Wrap</label>
+                                <input type="text" name="ketebalan_bubble_wrap" class="form-input" value="<?php echo htmlspecialchars($_POST['ketebalan_bubble_wrap'] ?? '3 lapis'); ?>">
                             </div>
+                            <small class="text-light" style="display: block; margin-bottom: 16px;">
+                                Rumus: (Berat × Tarif Dasar) + Rp 20.000 (Asuransi) + Surcharge Fragile 5%
+                            </small>
                         </div>
 
                         <button type="submit" class="btn btn-primary" style="width: 100%;">Hitung Tarif</button>
                     </form>
                 </div>
 
-                <!-- Result -->
                 <div class="card">
                     <h3 class="card-title">Hasil Perhitungan</h3>
-                    
+
                     <?php if ($result): ?>
                         <div style="background: var(--border-light); padding: 24px; border-radius: 8px;">
                             <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
                                 <div style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Jenis Kargo</div>
-                                <div style="font-size: 18px; font-weight: 600; color: var(--primary-color);"><?php echo $result['jenis']; ?></div>
+                                <div style="font-size: 18px; font-weight: 600; color: var(--primary-color);"><?php echo htmlspecialchars($result['jenis']); ?></div>
                             </div>
 
                             <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
@@ -154,13 +116,19 @@ function formatRupiah($amount) {
                                         <td style="padding: 6px 0; color: var(--text-secondary);">Tarif Dasar/kg</td>
                                         <td style="padding: 6px 0; text-align: right; color: var(--text-primary); font-weight: 500;"><?php echo formatRupiah($result['tarif_dasar']); ?></td>
                                     </tr>
+                                    <tr>
+                                        <td style="padding: 6px 0; color: var(--text-secondary);">Status SOP</td>
+                                        <td style="padding: 6px 0; text-align: right; color: <?php echo $result['status_packing'] === 'TERPENUHI' ? 'var(--success)' : '#ef4444'; ?>; font-weight: 500;">
+                                            <?php echo htmlspecialchars($result['status_packing']); ?>
+                                        </td>
+                                    </tr>
                                 </table>
                             </div>
 
                             <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
-                                <div style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Formula Perhitungan</div>
+                                <div style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">Formula (via Polimorfisme)</div>
                                 <div style="font-size: 12px; color: var(--text-primary); background: var(--white); padding: 12px; border-radius: 6px; font-family: 'Courier New', monospace;">
-                                    <?php echo $result['formula']; ?>
+                                    <?php echo htmlspecialchars($result['formula']); ?>
                                 </div>
                             </div>
 

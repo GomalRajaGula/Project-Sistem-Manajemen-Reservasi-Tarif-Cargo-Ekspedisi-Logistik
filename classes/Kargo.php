@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/connection.php';
 
 abstract class Kargo
 {
@@ -22,7 +22,7 @@ abstract class Kargo
     public function generateIdResi(string $prefix): string
     {
         $timestamp = date('YmdHis');
-        $randomDigits = str_pad((string) mt_rand(0, 9999), 4, '0', STR_PAD_LEFT);
+        $randomDigits = str_pad((string) mt_rand(0, 999), 3, '0', STR_PAD_LEFT);
         $this->id_resi = strtoupper($prefix) . $timestamp . $randomDigits;
 
         return $this->id_resi;
@@ -35,7 +35,7 @@ abstract class Kargo
      * @param string $jenisKargo
      * @return bool
      */
-    public function simpanKargo(string $jenisKargo): bool
+    public function simpanKargo(string $jenisKargo, ?PDO $pdo = null): bool
     {
         // Pastikan id_resi tersedia sebelum menyimpan.
         if (empty($this->id_resi)) {
@@ -50,8 +50,9 @@ abstract class Kargo
         $statusPacking = $packingValid ? 'TERPENUHI' : 'BELUM TERPENUHI';
 
         try {
-            $database = new Database();
-            $pdo = $database->getConnection();
+            if ($pdo === null) {
+                require __DIR__ . '/../config/connection.php';
+            }
 
             $sql = "INSERT INTO kargo
                     (id_resi, pengirim, kota_tujuan, berat_barang, tarif_dasar_per_kg, jenis_kargo, total_tarif, status_packing, tanggal_reservasi)
@@ -92,6 +93,34 @@ abstract class Kargo
      * @return bool
      */
     abstract protected function validasiSOPPacking(): bool;
+
+    /**
+     * Rincian komponen tarif untuk ditampilkan di UI.
+     *
+     * @return array<string, mixed>
+     */
+    abstract public function getRincianPerhitungan(): array;
+
+    /**
+     * Akses publik ke perhitungan tarif (polimorfisme).
+     * Controller memanggil method ini, bukan rumus manual.
+     *
+     * @return float
+     */
+    public function getTotalTarif(): float
+    {
+        return $this->hitungTarifPengiriman();
+    }
+
+    /**
+     * Akses publik ke validasi SOP packing dari subclass.
+     *
+     * @return bool
+     */
+    public function cekValidasiSOPPacking(): bool
+    {
+        return $this->validasiSOPPacking();
+    }
 
     // Setter dan getter untuk semua atribut.
 

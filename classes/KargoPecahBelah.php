@@ -25,6 +25,9 @@ class KargoPecahBelah extends Kargo
     /** @var float Minimum biaya asuransi wajib */
     private const MIN_BIAYA_ASURANSI = 5000;
 
+    /** @var float Persentase surcharge fragile dari tarif berat */
+    private const SURCHARGE_FRAGILE_PERSEN = 0.05;
+
     /**
      * Constructor untuk KargoPecahBelah.
      * Menginisialisasi atribut dari parent class dan atribut tambahan.
@@ -49,21 +52,47 @@ class KargoPecahBelah extends Kargo
         $this->beratBarang = $beratBarang;
         $this->tarifDasarPerKg = $tarifDasarPerKg;
         $this->ketebalanBubbleWrap = $ketebalanBubbleWrap;
-        $this->biayaAsuransiWajib = $biayaAsuransiWajib;
+        $this->biayaAsuransiWajib = 20000.0; // DIPATOK TETAP Rp 20.000 oleh sistem
     }
 
     /**
      * Menghitung total tarif pengiriman kargo pecah/belah.
-     * Rumus: (Berat × Tarif Dasar per Kg) + Biaya Asuransi Wajib
+     * Rumus: (Berat × Tarif Dasar per Kg) + Biaya Asuransi + Surcharge Fragile (5% tarif berat)
      *
      * @return float
      */
     protected function hitungTarifPengiriman(): float
     {
-        $tarifDasar = (float) $this->beratBarang * (float) $this->tarifDasarPerKg;
+        $tarifBerat = (float) $this->beratBarang * (float) $this->tarifDasarPerKg;
+        $surchargeFragile = $tarifBerat * self::SURCHARGE_FRAGILE_PERSEN;
         $biayaAsuransi = (float) ($this->biayaAsuransiWajib ?? 0);
-        
-        return $tarifDasar + $biayaAsuransi;
+
+        return $tarifBerat + $biayaAsuransi + $surchargeFragile;
+    }
+
+    /**
+     * Rincian komponen tarif untuk ditampilkan di dashboard.
+     *
+     * @return array{tarif_berat: float, surcharge_fragile: float, biaya_asuransi: float, formula: string}
+     */
+    public function getRincianPerhitungan(): array
+    {
+        $tarifBerat = (float) $this->beratBarang * (float) $this->tarifDasarPerKg;
+        $surchargeFragile = $tarifBerat * self::SURCHARGE_FRAGILE_PERSEN;
+        $biayaAsuransi = (float) ($this->biayaAsuransiWajib ?? 0);
+
+        return [
+            'tarif_berat' => $tarifBerat,
+            'surcharge_fragile' => $surchargeFragile,
+            'biaya_asuransi' => $biayaAsuransi,
+            'formula' => sprintf(
+                '(%s kg × Rp %s) + Rp %s (asuransi) + Rp %s (surcharge fragile 5%%)',
+                $this->beratBarang,
+                number_format($this->tarifDasarPerKg, 0, ',', '.'),
+                number_format($biayaAsuransi, 0, ',', '.'),
+                number_format($surchargeFragile, 0, ',', '.')
+            ),
+        ];
     }
 
     /**
@@ -121,7 +150,7 @@ class KargoPecahBelah extends Kargo
      *
      * @return bool
      */
-    public function simpanKargoPecahBelah(): bool
+    public function simpanKargoPecahBelah(?PDO $pdo = null): bool
     {
         // Generate ID resi dengan prefix PB jika belum ada
         if (empty($this->id_resi)) {
@@ -129,17 +158,22 @@ class KargoPecahBelah extends Kargo
         }
 
         try {
-            $database = new Database();
-            $pdo = $database->getConnection();
+            if ($pdo === null) {
+                require __DIR__ . '/../config/connection.php';
+            }
 
             $sql = "INSERT INTO kargo_pecah_belah
                     (id_resi, ketebalan_bubble_wrap, biaya_asuransi_wajib)
                     VALUES
                     (:id_resi, :ketebalan_bubble_wrap, :biaya_asuransi_wajib)";
 
+            // Ekstrak numeric part dari ketebalan bubble wrap (misal: "3 lapis" -> 3.00)
+            preg_match('/\d+/', $this->ketebalanBubbleWrap ?? '0', $matches);
+            $angkaKetebalan = isset($matches[0]) ? (float) $matches[0] : 0.0;
+
             $stmt = $pdo->prepare($sql);
             $stmt->bindValue(':id_resi', $this->id_resi);
-            $stmt->bindValue(':ketebalan_bubble_wrap', $this->ketebalanBubbleWrap);
+            $stmt->bindValue(':ketebalan_bubble_wrap', $angkaKetebalan);
             $stmt->bindValue(':biaya_asuransi_wajib', $this->biayaAsuransiWajib, PDO::PARAM_STR);
 
             return $stmt->execute();
@@ -156,20 +190,21 @@ class KargoPecahBelah extends Kargo
      */
     public function getRingkasanTarif(): array
     {
-        $tarifDasar = (float) $this->beratBarang * (float) $this->tarifDasarPerKg;
-        $biayaAsuransi = (float) ($this->biayaAsuransiWajib ?? 0);
-        $totalTarif = $this->hitungTarifPengiriman();
+        $rincian = $this->getRincianPerhitungan();
+        $totalTarif = $this->getTotalTarif();
 
         return [
-            'tarif_dasar' => $tarifDasar,
-            'biaya_asuransi_wajib' => $biayaAsuransi,
+            'tarif_dasar' => $rincian['tarif_berat'],
+            'surcharge_fragile' => $rincian['surcharge_fragile'],
+            'biaya_asuransi_wajib' => $rincian['biaya_asuransi'],
             'total_tarif' => $totalTarif,
             'detail' => sprintf(
-                "Tarif Dasar: Rp %s | Asuransi: Rp %s | Total: Rp %s",
-                number_format($tarifDasar, 0, ',', '.'),
-                number_format($biayaAsuransi, 0, ',', '.'),
+                'Tarif Berat: Rp %s | Surcharge Fragile: Rp %s | Asuransi: Rp %s | Total: Rp %s',
+                number_format($rincian['tarif_berat'], 0, ',', '.'),
+                number_format($rincian['surcharge_fragile'], 0, ',', '.'),
+                number_format($rincian['biaya_asuransi'], 0, ',', '.'),
                 number_format($totalTarif, 0, ',', '.')
-            )
+            ),
         ];
     }
 

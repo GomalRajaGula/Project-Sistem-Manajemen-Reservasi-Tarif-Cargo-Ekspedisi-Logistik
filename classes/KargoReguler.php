@@ -34,6 +34,25 @@ class KargoReguler extends Kargo
     }
 
     /**
+     * Rincian komponen tarif untuk ditampilkan di dashboard.
+     *
+     * @return array{tarif_berat: float, formula: string}
+     */
+    public function getRincianPerhitungan(): array
+    {
+        $tarifBerat = (float) $this->beratBarang * (float) $this->tarifDasarPerKg;
+
+        return [
+            'tarif_berat' => $tarifBerat,
+            'formula' => sprintf(
+                '%s kg × Rp %s',
+                $this->beratBarang,
+                number_format($this->tarifDasarPerKg, 0, ',', '.')
+            ),
+        ];
+    }
+
+    /**
      * Validasi SOP packing untuk kargo reguler.
      * Aturan:
      * 1. Berat barang harus lebih dari 0 kg
@@ -63,7 +82,7 @@ class KargoReguler extends Kargo
      *
      * @return bool
      */
-    public function simpanKargoReguler(): bool
+    public function simpanKargoReguler(?PDO $pdo = null): bool
     {
         // Generate ID resi dengan prefix REG jika belum ada
         if (empty($this->id_resi)) {
@@ -71,8 +90,9 @@ class KargoReguler extends Kargo
         }
 
         try {
-            $database = new Database();
-            $pdo = $database->getConnection();
+            if ($pdo === null) {
+                require __DIR__ . '/../config/connection.php';
+            }
 
             $sql = "INSERT INTO kargo_reguler
                     (id_resi, jenis_paket, estimasi_hari)

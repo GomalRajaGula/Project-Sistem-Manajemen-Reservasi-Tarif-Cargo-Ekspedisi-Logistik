@@ -1,174 +1,176 @@
-# Sistem Manajemen Reservasi & Tarif Cargo Ekspedisi Logistik
+# CargoFlow - Sistem Manajemen Reservasi & Tarif Cargo Ekspedisi Logistik
 
-Aplikasi web berbasis **PHP murni (Native PHP)** dengan konsep **Object-Oriented Programming (OOP)** untuk mengelola reservasi pengiriman cargo, perhitungan tarif, dan validasi SOP packing pada perusahaan ekspedisi logistik.
-
-> **Mata Kuliah:** Pemrograman Berorientasi Objek (PBO) — UAS Kelompok 3
+Aplikasi web berbasis **PHP Native OOP** (Object-Oriented Programming) untuk mengelola reservasi pengiriman cargo, perhitungan tarif secara dinamis, dan validasi Standar Operasional Prosedur (SOP) packing pada perusahaan ekspedisi logistik.
 
 ---
 
-## Fitur Utama
+## 🚀 Fitur Utama
 
-- **Dashboard** — Ringkasan statistik pengiriman dan pendapatan
-- **Manajemen Kargo** — Tiga jenis kargo dengan aturan bisnis berbeda:
-  - Kargo Reguler (Koli/Dus)
-  - Kargo Bahan Kimia (Class 1–9)
-  - Kargo Pecah Belah (bubble wrap + asuransi)
-- **Reservasi Pengiriman** — Form input reservasi berdasarkan jenis kargo
-- **Perhitungan Tarif** — Kalkulasi otomatis sesuai rumus masing-masing subclass
-- **Laporan** — Tampilan data pengiriman
+- **Dashboard Real-Time**: Ringkasan data reservasi, pendapatan total, dan status packing cargo.
+- **Dinamisasi Jenis Cargo**: Mendukung tiga jenis cargo dengan karakteristik, validasi SOP, dan formula tarif yang berbeda.
+- **Kalkulator Tarif & SOP**: Simulasi perhitungan tarif dan kelayakan SOP packing sebelum reservasi disimpan.
+- **Manajemen Reservasi & Laporan**: Penyimpanan transaksi ke database relasional dengan pencatatan struk detail.
 
 ---
 
-## Teknologi
+## 🛠️ Konsep OOP yang Diimplementasikan
 
-| Komponen | Teknologi |
-|---|---|
-| Backend | PHP 7.4+ (Native, OOP) |
-| Database | MySQL / MariaDB |
-| Koneksi DB | PDO |
-| Frontend | HTML, CSS, JavaScript |
-| Server Lokal | Laragon (recommended) |
+Aplikasi ini dirancang dengan menerapkan pilar-pilar utama **Pemrograman Berorientasi Objek (OOP)** pada PHP untuk menjamin kode yang *clean*, modular, dan mudah dikembangkan (*scalable*).
+
+### 1. Abstraksi (Abstraction)
+Abstraksi diterapkan dengan membuat kelas induk `Kargo` sebagai **`abstract class`**. Kelas ini mendefinisikan struktur dasar kargo tetapi tidak dapat diinstansiasi secara langsung.
+* Kelas ini memiliki **`abstract method`** seperti `hitungTarifPengiriman()`, `validasiSOPPacking()`, dan `getRincianPerhitungan()`.
+* Implementasi detail dari metode-metode tersebut disembunyikan dari kelas induk dan wajib diimplementasikan (*overridden*) di dalam masing-masing subclass.
+
+### 2. Enkapsulasi (Encapsulation)
+Enkapsulasi digunakan untuk melindungi data sensitif dari modifikasi luar secara langsung.
+* Semua atribut utama dalam kelas `Kargo` (seperti `$id_resi`, `$pengirim`, `$beratBarang`, dll) serta subclass menggunakan hak akses **`protected`** atau **`private`**.
+* Akses dan manipulasi data atribut dilakukan secara aman melalui metode perantara **Getter & Setter** (misalnya `getPengirim()`, `setPengirim()`, dll).
+
+### 3. Pewarisan (Inheritance)
+Pewarisan digunakan untuk meminimalkan redundansi kode.
+* Kelas **`KargoReguler`**, **`KargoBahanKimia`**, dan **`KargoPecahBelah`** bertindak sebagai *subclass* yang mewarisi (*extends*) seluruh properti dan metode dari *superclass* **`Kargo`**.
+* Atribut umum seperti nama pengirim, kota tujuan, dan berat barang cukup ditulis sekali di kelas induk.
+
+### 4. Polimorfisme (Polymorphism)
+Polimorfisme memungkinkan objek dari subclass yang berbeda diperlakukan sebagai objek dari superclass yang sama namun berperilaku sesuai karakternya masing-masing.
+* Contoh nyata adalah pemanggilan metode `hitungTarifPengiriman()` dan `validasiSOPPacking()`. 
+* Kelas **`KargoFactory`** cukup memanggil metode polimorfik ini secara seragam untuk mendapatkan hasil perhitungan yang berbeda sesuai dengan tipe instansiasi objek kargo yang aktif.
 
 ---
 
-## Struktur Proyek
+## 📐 Arsitektur OOP & Aturan Bisnis
+
+### Struktur Kelas & Atribut
+
+```
+                      ┌─────────────────────────────────────┐
+                      │            <<abstract>>             │
+                      │                Kargo                │
+                      ├─────────────────────────────────────┤
+                      │ # id_resi: string                   │
+                      │ # pengirim: string                  │
+                      │ # kotaTujuan: string                │
+                      │ # beratBarang: float                │
+                      │ # tarifDasarPerKg: float            │
+                      ├─────────────────────────────────────┤
+                      │ + generateIdResi(prefix)            │
+                      │ + simpanKargo(jenisKargo, pdo)      │
+                      │ # hitungTarifPengiriman()*          │
+                      │ # validasiSOPPacking()*             │
+                      │ + getRincianPerhitungan()*          │
+                      └──────────────────┬──────────────────┘
+                                         │
+                 ┌───────────────────────┼───────────────────────┐
+                 │                       │                       │
+      ┌──────────▼──────────┐ ┌──────────▼──────────┐ ┌──────────▼──────────┐
+      │     KargoReguler    │ │   KargoBahanKimia   │ │   KargoPecahBelah   │
+      ├─────────────────────┤ ├─────────────────────┤ ├─────────────────────┤
+      │ # jenisPaket: string│ │ # tingkatBahaya: int│ │ # ketebalanBubble:  │
+      │ # estimasiHari: int │ │ # sertifikasi: str  │ │   string            │
+      │                     │ │                     │ │ # asuransi: float   │
+      └─────────────────────┘ └─────────────────────┘ └─────────────────────┘
+```
+
+#### 1. Kelas Induk: `Kargo` (Abstract)
+* **Atribut**:
+  * `$id_resi` (Protected): Nomor resi unik transaksi.
+  * `$pengirim` (Protected): Nama pengirim kargo.
+  * `$kotaTujuan` (Protected): Kota destinasi pengiriman.
+  * `$beratBarang` (Protected): Berat barang dalam kilogram (kg).
+  * `$tarifDasarPerKg` (Protected): Tarif dasar pengiriman per kg.
+
+#### 2. Subclass: `KargoReguler`
+* **Atribut Tambahan**:
+  * `$jenisPaket` (Protected): Tipe kemasan (`Koli` atau `Dus`).
+  * `$estimasiHari` (Protected): Lama estimasi pengiriman.
+* **Prefix ID Resi**: `REG`
+
+#### 3. Subclass: `KargoBahanKimia`
+* **Atribut Tambahan**:
+  * `$tingkatBahaya` (Protected): Kelas bahaya kimia skala 1 s.d. 9.
+  * `$jenisSertifikasiSandi` (Protected): Kode sertifikat kelayakan transportasi bahan kimia.
+* **Prefix ID Resi**: `KIM`
+
+#### 4. Subclass: `KargoPecahBelah`
+* **Atribut Tambahan**:
+  * `$ketebalanBubbleWrap` (Protected): Ketebalan pelindung (misal: "3 lapis").
+  * `$biayaAsuransiWajib` (Protected): Nominal asuransi barang pecah belah.
+* **Prefix ID Resi**: `PB`
+
+### Aturan Bisnis Rumus Tarif Otomatis
+
+Aplikasi menetapkan tarif dasar flat sebesar **Rp 10.000 / kg** yang dikelola terpusat di `KargoFactory.php`. Rumus akhir tarif dihitung secara otomatis berdasarkan aturan khusus subclass:
+
+> **📦 Kargo Reguler**
+> 
+> $$\text{Total Tarif} = \text{Berat Barang} \times \text{Tarif Dasar}$$
+> * *Prefix Resi*: `REG`
+> * *SOP Packing*: Berat > 0 kg & tipe paket harus `Koli` atau `Dus`.
+
+---
+
+> **☣️ Kargo Bahan Kimia**
+> 
+> $$\text{Total Tarif} = (\text{Berat Barang} \times \text{Tarif Dasar}) + (\text{Tingkat Bahaya} \times \text{Rp 100.000})$$
+> * *Prefix Resi*: `KIM`
+> * *SOP Packing*: Berat > 0 kg, tingkat bahaya berada di rentang 1 s.d. 9, dan nomor sertifikasi terisi.
+
+---
+
+> **🔮 Kargo Pecah Belah**
+> 
+> $$\text{Total Tarif} = (\text{Berat Barang} \times \text{Tarif Dasar}) + \text{Asuransi Wajib (Rp 20.000)} + \text{Surcharge Fragile (5\% dari Tarif Berat)}$$
+> * *Prefix Resi*: `PB`
+> * *Asuransi Wajib*: Dipatok tetap Rp 20.000 di sisi backend.
+> * *Surcharge Fragile*: Tambahan biaya 5% dari perkalian berat dan tarif dasar.
+> * *SOP Packing*: Berat > 0 kg, ketebalan bubble wrap minimal 2 lapis, asuransi wajib memenuhi minimal Rp 5.000.
+
+---
+
+## 📁 Struktur Folder Project
+
+Berikut adalah struktur direktori lengkap dari project **CargoFlow**:
 
 ```
 Project-Sistem-Manajemen-Reservasi-Tarif-Cargo-Ekspedisi-Logistik/
 ├── assets/
 │   └── css/
-│       └── style.css              # Stylesheet dashboard
+│       └── style.css                 # File styling utama halaman dashboard
 ├── classes/
-│   ├── Kargo.php                  # Abstract class (parent)
-│   ├── KargoReguler.php           # Subclass kargo reguler
-│   ├── KargoBahanKimia.php        # Subclass kargo bahan kimia
-│   └── KargoPecahBelah.php        # Subclass kargo pecah/belah
+│   ├── Kargo.php                     # Abstract Class (Parent) utama kargo
+│   ├── KargoReguler.php              # Subclass khusus penanganan Kargo Reguler
+│   ├── KargoBahanKimia.php           # Subclass khusus penanganan Kargo Bahan Kimia
+│   ├── KargoPecahBelah.php           # Subclass khusus penanganan Kargo Pecah Belah
+│   └── KargoFactory.php              # Class Design Pattern Factory untuk instansiasi objek
 ├── config/
-│   ├── database.php               # Class Database (PDO)
-│   └── connection.php             # Tes koneksi database
+│   ├── database.php                  # Class Database utility dengan koneksi PDO
+│   └── connection.php                # File inisialisasi koneksi database procedural
 ├── dashboard/
-│   ├── index.php                  # Halaman utama dashboard
-│   ├── kargo_reguler.php          # Data kargo reguler
-│   ├── kargo_kimia.php            # Data kargo bahan kimia
-│   ├── kargo_pecah_belah.php      # Data kargo pecah belah
-│   ├── reservasi.php              # Form reservasi pengiriman
-│   ├── perhitungan_tarif.php      # Kalkulasi tarif
-│   ├── laporan.php                # Laporan pengiriman
-│   ├── navbar.php                 # Komponen navbar
-│   └── sidebar.php                # Komponen sidebar navigasi
-└── README.md
+│   ├── index.php                     # Halaman Dashboard & statistik transaksi
+│   ├── reservasi.php                 # Halaman pembuatan reservasi pengiriman cargo baru
+│   ├── perhitungan_tarif.php         # Kalkulator simulasi tarif dan validasi SOP
+│   ├── kargo_reguler.php             # Halaman daftar pengiriman kargo reguler
+│   ├── kargo_kimia.php               # Halaman daftar pengiriman kargo bahan kimia
+│   ├── kargo_pecah_belah.php         # Halaman daftar pengiriman kargo pecah belah
+│   ├── laporan.php                   # Halaman cetak laporan transaksi (print-friendly)
+│   ├── navbar.php                    # Fragment komponen navigasi atas
+│   └── sidebar.php                   # Fragment komponen navigasi samping
+├── database/
+│   └── schema.sql                    # SQL Script database schema (DDL)
+└── README.md                         # Dokumentasi teknis project
 ```
 
 ---
 
-## Arsitektur OOP
+## 🗄️ Skema Database
 
-### Class Diagram (Konsep)
+Aplikasi dikoneksikan ke database MySQL/MariaDB dengan konfigurasi database bernama **`db_logistik_cargo`** (atau dapat disesuaikan pada konfigurasi koneksi `'db'`). 
 
-```
-                    ┌─────────────────────┐
-                    │   <<abstract>>      │
-                    │       Kargo         │
-                    ├─────────────────────┤
-                    │ # id_resi           │
-                    │ # pengirim          │
-                    │ # kotaTujuan        │
-                    │ # beratBarang       │
-                    │ # tarifDasarPerKg   │
-                    ├─────────────────────┤
-                    │ + generateIdResi()  │
-                    │ + simpanKargo()     │
-                    │ # hitungTarif() *   │
-                    │ # validasiSOP() *   │
-                    └─────────┬───────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          │                   │                   │
-┌─────────▼─────────┐ ┌───────▼────────┐ ┌────────▼──────────┐
-│   KargoReguler    │ │ KargoBahanKimia│ │  KargoPecahBelah  │
-│   prefix: REG     │ │  prefix: KIM   │ │   prefix: PB      │
-└───────────────────┘ └────────────────┘ └───────────────────┘
-```
-
-### Abstract Class `Kargo`
-
-| Atribut | Tipe | Keterangan |
-|---|---|---|
-| `id_resi` | string | ID resi unik |
-| `pengirim` | string | Nama pengirim |
-| `kotaTujuan` | string | Kota tujuan |
-| `beratBarang` | float | Berat dalam kg |
-| `tarifDasarPerKg` | float | Tarif dasar per kg |
-
-| Method | Keterangan |
-|---|---|
-| `generateIdResi($prefix)` | Generate ID: `PREFIX + YmdHis + 4 digit random` |
-| `simpanKargo($jenisKargo)` | Insert ke tabel `kargo` |
-| `hitungTarifPengiriman()` | **Abstract** — di-override tiap subclass |
-| `validasiSOPPacking()` | **Abstract** — di-override tiap subclass |
-
-### Subclass & Aturan Bisnis
-
-#### 1. `KargoReguler` — Prefix: `REG`
-
-| Atribut Tambahan | Keterangan |
-|---|---|
-| `jenisPaket` | `Koli` atau `Dus` |
-| `estimasiHari` | Estimasi hari pengiriman |
-
-- **Rumus tarif:** `Berat × Tarif Dasar per Kg`
-- **Validasi SOP:** Berat > 0, jenis paket valid
-- **Tabel child:** `kargo_reguler`
-- **Method simpan:** `simpanKargoReguler()`
-
-#### 2. `KargoBahanKimia` — Prefix: `KIM`
-
-| Atribut Tambahan | Keterangan |
-|---|---|
-| `tingkatBahaya` | Class 1–9 |
-| `jenisSertifikasiSandi` | Kode sertifikasi keamanan |
-
-- **Rumus tarif:** `Berat × Tarif Dasar × Multiplier`
-  - Class 1–3 → ×1.2
-  - Class 4–6 → ×1.5
-  - Class 7–9 → ×2.0
-- **Validasi SOP:** Berat > 0, tingkat bahaya valid, sertifikasi terisi
-- **Tabel child:** `kargo_bahan_kimia`
-- **Method simpan:** `simpanKargoBahanKimia()`
-
-#### 3. `KargoPecahBelah` — Prefix: `PB`
-
-| Atribut Tambahan | Keterangan |
-|---|---|
-| `ketebalanBubbleWrap` | Contoh: `"3 lapis"` |
-| `biayaAsuransiWajib` | Minimal Rp 5.000 |
-
-- **Rumus tarif:** `(Berat × Tarif Dasar) + Biaya Asuransi`
-- **Validasi SOP:** Berat > 0, bubble wrap ≥ 2 lapis, asuransi ≥ Rp 5.000
-- **Tabel child:** `kargo_pecah_belah`
-- **Method simpan:** `simpanKargoPecahBelah()`
-
----
-
-## Database
-
-**Nama database:** `db_logistik_cargo`
-
-### Konfigurasi Koneksi
-
-Edit `config/database.php` jika diperlukan:
-
-| Parameter | Default |
-|---|---|
-| Host | `localhost` |
-| Username | `root` |
-| Password | *(kosong)* |
-| Database | `db_logistik_cargo` |
-
-### Skema Tabel
+Berikut adalah skema DDL SQL ringkas untuk 4 tabel relasional yang digunakan:
 
 ```sql
--- Tabel induk
+-- 1. Tabel Utama / Induk Kargo
 CREATE TABLE kargo (
     id_resi VARCHAR(50) PRIMARY KEY,
     pengirim VARCHAR(100) NOT NULL,
@@ -179,114 +181,80 @@ CREATE TABLE kargo (
     total_tarif DECIMAL(15,2) NOT NULL,
     status_packing ENUM('TERPENUHI', 'BELUM TERPENUHI') NOT NULL,
     tanggal_reservasi DATETIME NOT NULL
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Kargo Reguler
+-- 2. Tabel Detail Kargo Reguler
 CREATE TABLE kargo_reguler (
     id_resi VARCHAR(50) PRIMARY KEY,
     jenis_paket ENUM('Koli', 'Dus') NOT NULL,
     estimasi_hari INT NOT NULL,
-    FOREIGN KEY (id_resi) REFERENCES kargo(id_resi)
-);
+    FOREIGN KEY (id_resi) REFERENCES kargo(id_resi) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Kargo Bahan Kimia
+-- 3. Tabel Detail Kargo Bahan Kimia
 CREATE TABLE kargo_bahan_kimia (
     id_resi VARCHAR(50) PRIMARY KEY,
     tingkat_bahaya INT NOT NULL,
     jenis_sertifikasi_sandi VARCHAR(100) NOT NULL,
-    FOREIGN KEY (id_resi) REFERENCES kargo(id_resi)
-);
+    FOREIGN KEY (id_resi) REFERENCES kargo(id_resi) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Kargo Pecah Belah
+-- 4. Tabel Detail Kargo Pecah Belah
 CREATE TABLE kargo_pecah_belah (
     id_resi VARCHAR(50) PRIMARY KEY,
-    ketebalan_bubble_wrap VARCHAR(50) NOT NULL,
+    ketebalan_bubble_wrap INT NOT NULL, -- Diambil bagian angkanya saja (misal: 3)
     biaya_asuransi_wajib DECIMAL(15,2) NOT NULL,
-    FOREIGN KEY (id_resi) REFERENCES kargo(id_resi)
-);
+    FOREIGN KEY (id_resi) REFERENCES kargo(id_resi) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
 ---
 
-## Instalasi & Menjalankan
+## ⚙️ Panduan Instalasi & Setup (Laragon)
 
-### Prasyarat
+Ikuti langkah-langkah di bawah ini untuk menjalankan project CargoFlow pada web server lokal Anda menggunakan **Laragon**:
 
-- [Laragon](https://laragon.org/) (atau XAMPP/WAMP)
-- PHP 7.4 atau lebih baru
-- MySQL / MariaDB
-- Browser modern
+1. **Pindahkan Folder Project**  
+   Ekstrak dan pindahkan folder project `Project-Sistem-Manajemen-Reservasi-Tarif-Cargo-Ekspedisi-Logistik` ke dalam direktori root Laragon Anda.  
+   * Biasanya berada di: `C:\laragon\www\`  
+   * Atau dapat diletakkan di workspace Anda jika menggunakan virtual host: `Documents/PROJECT PBO UAS KEL 3`
 
-### Langkah Instalasi
+2. **Jalankan Web Server**  
+   Buka aplikasi Laragon, kemudian klik tombol **Start All** untuk menyalakan Apache dan MySQL.
 
-1. **Clone / copy** project ke folder web server Laragon:
-   ```
-   C:\laragon\www\Project-Sistem-Manajemen-Reservasi-Tarif-Cargo-Ekspedisi-Logistik
-   ```
+3. **Import Database**  
+   * Buka browser dan akses **phpMyAdmin** melalui url `http://localhost/phpmyadmin/` atau tekan tombol **Database** di Laragon.
+   * Buat database baru dengan nama `db_logistik_cargo`.
+   * Klik menu **Import**, pilih file SQL schema yang berada di `database/schema.sql` (atau salin isi DDL di atas dan jalankan pada tab **SQL**), lalu klik **Go**.
 
-2. **Jalankan Laragon** — pastikan Apache dan MySQL aktif (status hijau).
-
-3. **Buat database** di phpMyAdmin:
-   - Buka `http://localhost/phpmyadmin`
-   - Buat database baru: `db_logistik_cargo`
-   - Jalankan skema SQL di atas
-
-4. **Tes koneksi database:**
+4. **Validasi Koneksi Database**  
+   Anda dapat melakukan verifikasi koneksi dengan mengakses script pengetesan koneksi di browser:
    ```
    http://localhost/Project-Sistem-Manajemen-Reservasi-Tarif-Cargo-Ekspedisi-Logistik/config/connection.php
    ```
-   Pastikan muncul pesan koneksi berhasil.
+   *Jika layar kosong/tidak memunculkan error, berarti koneksi database berhasil terhubung.*
 
-5. **Buka dashboard aplikasi:**
+5. **Akses Dashboard Aplikasi**  
+   Buka dashboard utama CargoFlow melalui tautan berikut:
    ```
    http://localhost/Project-Sistem-Manajemen-Reservasi-Tarif-Cargo-Ekspedisi-Logistik/dashboard/
    ```
 
 ---
 
-## Contoh Penggunaan Class
+## 👥 Tim Pengembang (Kelompok 3)
 
-```php
-<?php
-require_once 'classes/KargoReguler.php';
+Project ini disusun sebagai tugas Ujian Akhir Semester (UAS) mata kuliah Pemrograman Berorientasi Objek (PBO).
 
-$kargo = new KargoReguler();
-
-// Set data umum
-$kargo->setPengirim('PT. Logistik Jaya');
-$kargo->setKotaTujuan('Surabaya');
-$kargo->setBeratBarang(12.5);
-$kargo->setTarifDasarPerKg(5000);
-
-// Set data spesifik kargo reguler
-$kargo->setJenisPaket('Koli');
-$kargo->setEstimasiHari(3);
-
-// Simpan: induk dulu, lalu child
-$kargo->generateIdResi('REG');
-$kargo->simpanKargo('Reguler');
-$kargo->simpanKargoReguler();
-```
+| Foto / No | Nama Anggota | NIM | Peran dalam Proyek |
+| :---: | :--- | :---: | :--- |
+| 1 | [Nama Anggota 1] | [NIM Anggota 1] | Backend Developer / Database Designer |
+| 2 | [Nama Anggota 2] | [NIM Anggota 2] | Frontend Developer / UI Designer |
+| 3 | [Nama Anggota 3] | [NIM Anggota 3] | System Analyst / Tester |
+| 4 | [Nama Anggota 4] | [NIM Anggota 4] | Technical Writer / Documentation |
 
 ---
 
-## Konsep OOP yang Diterapkan
+## 📄 Lisensi
 
-| Konsep | Implementasi |
-|---|---|
-| **Abstraksi** | Class `Kargo` abstrak — method tarif & validasi disembunyikan di subclass |
-| **Enkapsulasi** | Atribut `protected`, akses via getter/setter |
-| **Inheritance** | `KargoReguler`, `KargoBahanKimia`, `KargoPecahBelah` extends `Kargo` |
-| **Polimorfisme** | `hitungTarifPengiriman()` dan `validasiSOPPacking()` berbeda tiap subclass |
-
----
-
-## Tim Pengembang
-
-Kelompok 3 — Pemrograman Berorientasi Objek (PBO) UAS
-
----
-
-## Lisensi
-
-Project akademik untuk keperluan Ujian Akhir Semester (UAS) mata kuliah Pemrograman Berorientasi Objek.
+Project ini dibuat khusus untuk memenuhi nilai akademik pada Program Studi Informatika/Sistem Informasi. Hak Cipta dilindungi undang-undang kelompok.
